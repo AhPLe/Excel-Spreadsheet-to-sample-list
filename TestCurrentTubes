@@ -1,0 +1,354 @@
+# -*- coding: utf-8 -*-
+"""
+this function is designed to mimic an actual function used
+to see which samples are on, off, going on, and going off
+from a spreadsheet in excel
+this is designed to check for errors among the labeling system
+as well as the errors from the program
+the names were changed, and because of this the program was
+not tested completely due to lack of actual functionality
+this is to be used as a current iteration of python code
+that will likely be improved on with both practice in and
+out of python - like object oriented organization
+
+future iterations could use a storage device to make it easier to
+access information instead of having to access excel files
+each time
+the samples are stored as a double list in the chamber file
+one chamber file for current, off, and on test
+the chamber file will also list humidities of the chamber
+
+this pulls default variables from DefaultSpreadsheetData
+this file can be used in tandem with Create excel spreadsheet
+to create an efficiency spreadsheet
+Created on Mon Apr  1 17:06:11 2019
+
+@author: LeblancA
+
+"""
+#pywin32 seems to fit all aspects
+#pandas-read excel would also be a fairly useful one to import
+
+
+#things required
+#rewrite humidity for strings
+#rewrite date for string functions
+#parse humidity, create a function for it and clean it so it produces errors if it's wrong
+#look through code for errors
+#figure out how to write chambers to a text file
+#possibly sort/change the tubing structure, but create a function to parse tube data
+
+import DefaultSpreadsheetData as DSD
+import datetime as DT
+import win32com.client
+import pywintypes
+import Chamber  
+
+
+debug = False
+debugTar = False
+debugCheck = False
+maxIteration = 10000
+maxInnerTest = 3
+comingOn = 2
+comingOff = 3
+noString = 'None'
+humidStd = Chamber._humidityStd
+humidHi = Chamber._humidityHi
+#FIX lots of error messages should be changed
+
+currentChambers = Chamber.Chambers() #the class name should be fixed
+futureChambersOn = Chamber.Chambers()
+futureChambersOff = Chamber.Chambers()
+
+#labels: link for site, updatelinks, readonly, format, password - more flags available
+
+class BadChamberError(BaseException):
+    """an error for when the chamber string is not available 
+    or able to be parsed"""
+    
+    def __init__(self, message):
+        BaseException.__init__(self, message)
+        self.message = message
+
+class ExcelError(BaseException):
+    """an error for when the excel program is open already
+    this error makes sure both workbooks are not open which causes a prompt for reopening
+    also it provokes issues of visibility of excel when the excel program is already open
+    - previously if excel was open, it would become hidden, then both workbooks would be open and 
+    clearly visible, an unintended behavior"""
+    
+    def __init__(self, message):
+        BaseException.__init__(self, message)
+        self.message = message
+
+#class BadTubeError(BaseException): - usage case was implemented without the error
+#    """an error for when there is a duplicate tube allocation
+#    in the chamber"""
+#    def __init__(self, message):
+#        BaseException.__init__(self)
+#        self.message = message
+            
+def ParseChamberName(chamberString):
+    #this splits a name chamber name into numbers
+    #it should probably throw an error if either isn't actually a number
+    chamberName = "foo"
+    delimitChar = '-'
+    parseChamberError = 'unable to parse, chamber names should be ' + chamberName + delimitChar + '"integer number"'
+    if type(chamberString) != type(chamberName) or chamberString == noString: 
+        return None
+    chamberTube = chamberString.split(delimitChar, 1)
+    expectedLength = 2
+    if (not type(chamberTube) is list) or len(chamberTube) != expectedLength:
+        raise TypeError(parseChamberError) #this has not been an issue yet
+        #previously raise BadChamberError(parseChamberError) - may try warning as all errors are being caught
+        return None
+    chamberTube[0] = chamberTube[0].replace(chamberName, "")
+    for i in range(len(chamberTube)):
+        chamberTube[i] = int(chamberTube[i].strip())
+    return chamberTube
+
+def ParseHumidity(humidString):
+    """check if the humidity given will work"""
+    strIsGood = True
+    if humidString == str(humidStd) or humidString == str(humidHi) \
+        or humidString == str(Chamber._noHumidity):
+        return strIsGood
+    else:
+        parseHumidError = 'unable to parse humidity, check if humidity is' \
+            + humidStd + ' or ' + humidHi
+        raise TypeError(parseHumidError) #this should either return an int of 0, std, or hi based on everything else
+
+def InputChamber(bookDef, i, curSheet, curChamber):
+    """inputs a tube into the chambers list"""
+    chambListEl = 0
+    tubeListEl = 1
+    if debug or debugTar:
+        print('testing chamber to include at', i)
+    try:
+        tube = ParseChamberName(str(curSheet.cells(i, bookDef.chamberCol).value))
+        if debug or debugTar:
+            print('with tube', tube)
+    except TypeError as te:
+        print(te.args, "row", i, "from spreadsheet", bookDef.wbkName)
+        
+    else:
+        #it's possible this should be a hashmap, or some hash formulation if converting to a database
+        tubeString = str(curSheet.cells(i, bookDef.groupNum).value) + ", " + str(curSheet.cells(i, bookDef.idCol).value)
+        if tube == None:  #this is fine, none is a return value for parseChamberName()
+            #todo use check with ParseHumidity
+            temp = curSheet.cells(i, bookDef.humidityCol).value #int(float(str( #checks would have to include decimals
+            if temp == str(humidStd) or temp == humidStd: #
+                curChamber.extraStd+=1
+            elif temp == str(humidHi) or temp == humidHi: # 
+                curChamber.extraHi+=1
+            else: #this should be an error
+                print('unable to parse humidity for extra tube from row', i, 'of', bookDef.wbkName)
+        else:
+            if (curChamber.chambers[tube[chambListEl] - 1][tube[tubeListEl] - 1] != Chamber._empty):
+                print(tubeString, 'and', curChamber.chambers[tube[chambListEl] - 1][tube[tubeListEl] - 1], 'have duplicate chamber spaces')
+            
+            curChamber.chambers[tube[chambListEl] - 1][tube[tubeListEl] - 1] = tubeString
+            if not (curChamber.humidity[tube[chambListEl] - 1] == Chamber._noHumidity):
+                if (curChamber.humidity[tube[chambListEl] - 1] == curSheet.cells(i, bookDef.humidityCol).value):
+                    pass #current humidity is the same as the humidity it should have, nothing to see here
+                else:
+                    print("in row", i, "of", bookDef.wbkName, "there was a different humidity value")
+                    print("the humidity was expected to be ", curChamber.humidity[tube[chambListEl] - 1], \
+                          "but was", curSheet.cells(i, bookDef.humidityCol).value)
+            else:
+                curChamber.humidity[tube[chambListEl] - 1] = curSheet.cells(i, bookDef.humidityCol).value
+
+def GetMondayAfterDate(curDate):
+    week = 11
+    curDay = curDate.weekday()
+    curDate = DT.date.fromordinal(curDate.toordinal() + week - curDay)
+    return curDate
+
+def CheckTube(bookDef, i, sht, curDate):
+    postDate = GetMondayAfterDate(curDate)
+        
+    """THIS SHOULD BE DOUBLE CHECKED
+    checks if the tube is in the chamber and has an end date after today
+    and if it hasn't already ended"""
+    
+    isGood = True
+    if debugCheck:
+        print('value of column', bookDef.estEDCol, 'at row', i, 'is', str(sht.cells(i, bookDef.estEDCol).value))
+    if str(sht.cells(i, bookDef.estEDCol).Value) != noString and sht.cells(i, bookDef.estEDCol).Value.date() > curDate and \
+        sht.cells(i, bookDef.actEDCol).Value == None:
+        if debug:
+            print('testing real things')
+        if sht.cells(i, bookDef.startDCol).Value.date() > curDate:
+            if debug:
+                print('testing future things')
+            isGood = comingOn
+        else:
+            if debug:
+                print('testing current things')
+            if not sht.cells(i, bookDef.estEDCol).Value.date() > postDate:
+                if debug:
+                    print('testing past things')            
+                isGood = comingOff
+            else:
+                if debug:
+                    print('testing more current things')            
+
+                isGood = True
+
+            if debug:
+                print('finished testing current things')            
+                #tube is not going offtest and is ontest, should evaluate
+                #if beforeAndAfter and sht.cells(i, bookDef.startDCol).date() 
+                #else
+    else:
+        isGood = False
+    return isGood
+
+def GetUsedChamberFromSpreadsheet(bookDef, curBook, curDate):
+    curSheet = curBook.Worksheets(bookDef.shtName)
+    if debug:
+        print("entering", bookDef.wbkName)
+    #shouldCont = True
+    counter = 0
+    if debug:
+        print('currently chambers are:')
+        print(currentChambers.chambers)
+        print('future chambers On are:')
+        print(futureChambersOn.chambers)
+        print('future chambers Off are:')
+        print(futureChambersOff.chambers)
+    for i in range(bookDef.startRow, bookDef.startRow + maxIteration): #bookDef.startRow + maxIteration
+        #test counter here only, if counter is above 0, continue
+        #else continue with sheet. the whole loop should have fewer calls
+        if str(curSheet.cells(i, bookDef.idCol).Value) == noString:
+            if counter == maxInnerTest:
+                #check if spreadsheet has ended
+                break
+            counter += 1
+            #shouldCont = False
+            continue
+        else:
+            #this could just be an if counter > 0, depending on if setting a 'write' is significantly longer than a 'read'
+            counter = 0
+        
+        """if not shouldCont:
+            shouldCont = True
+            continue"""
+
+        checkPlace = CheckTube(bookDef, i, curSheet, curDate)
+        if debug:
+            print('checkPlace is', checkPlace, 'at i', i)
+        if checkPlace:
+            #anything above 1 triggers 'True'. it's either coming on, 
+            #in the chambers currently, or currently in the chambers and coming off
+            if debug:
+                print("Entered")
+            if checkPlace == comingOn:
+                InputChamber(bookDef, i, curSheet, futureChambersOn)
+            else:
+                InputChamber(bookDef, i, curSheet, currentChambers)
+                if checkPlace == comingOff:
+                    InputChamber(bookDef, i, curSheet, futureChambersOff)
+        
+            if debug:            
+                print("the program is here at i", i)
+                print(str(curSheet.cells(i, bookDef.idCol)))
+    
+    #xlApp.Quit()
+
+def FinalPrint(curDate):
+    print('The', curDate, ' of the chamberschamber:')
+    print (currentChambers.chambers)
+    print('The', curDate, "of the chamber's humidity:")
+    print(currentChambers.humidity)
+    print('the empty spaces for', curDate, 'are:')
+    print(currentChambers.PrintEmptyChamberSpaces())
+    print('The', GetMondayAfterDate(curDate), "of the chamber's chamber coming on:")
+    print(futureChambersOn.chambers)
+    print('The', GetMondayAfterDate(curDate), "of the chamber's chamber coming off:")
+    print(futureChambersOff.chambers)
+    #print('The tubes going on by', GetMondayAfterDate(curDate), 'at', futureChambersOn.extraHi, 'are:', futureChambersOn.extraStd, sep = '\n')
+    #print('The tubes going on by', GetMondayAfterDate(curDate), 'at', futureChambersOn.extraStd, 'are:', futureChambersOn.extraHi, sep = '\n')
+    #print('The tubes going off by', GetMondayAfterDate(curDate), 'are:', futureChambersOff.chambers, sep = '\n')
+
+def TestIfExcelIsOpen():
+    excelOpen = False
+    try:
+        win32com.client.GetActiveObject('Excel.Application')
+        excelOpen = True
+        return excelOpen
+    except pywintypes.com_error as pywinErr:
+        expectedError = "(-2147221021, 'Operation unavailable', None, None)"
+        if not str(pywinErr.args) == expectedError:
+            print(pywinErr.args)   
+            """this is a simple way to check whether excel is open, 
+            the worksheets/workbooks are open, or some other problem exists that shouldn't exist"""
+        return excelOpen
+
+def OpenDefaults(toPrint = True):
+    if TestIfExcelIsOpen():
+        raise ExcelError('excel was open, please close excel')
+    bookDefOne = DSD.bookOneDefault
+    bookDefTwo = DSD.bookTwoDefault
+    xlApp = win32com.client.Dispatch("Excel.Application")
+
+    if not debug:
+        xlApp.Visible = False
+    else:
+        xlApp.Visible = True
+    
+    readOnly = True
+    toSave = False
+    today = DT.date.today()
+    if debug:
+        print('printing today', today)
+    #the date is declared and used here in all parts of the program
+    #in case it might be worth changing
+    #note: there is a Monday calculated after this day
+
+    try:
+        bookOne = xlApp.Workbooks.Open(bookDefOne.wbkPath, 0, readOnly, None, None)
+    except Exception as e:
+        print(e)
+        exit()
+    try:
+        bookTwo = xlApp.Workbooks.Open(bookDefTwo.wbkPath, 0, readOnly, None, None)
+    except Exception as eb:
+        print(eb)
+        bookOne.Close(toSave)
+        exit()
+        
+    try:
+        if debug:
+            print('entering bookOne')
+        GetUsedChamberFromSpreadsheet(bookDefOne, bookOne, today)
+        if debug:
+            print('entering bookTwo')
+        GetUsedChamberFromSpreadsheet(bookDefTwo, bookTwo, today)
+        if debug:
+            print('finished bookOne and bookTwo')
+        if toPrint:
+            if debug:
+                print('printing finally', today)
+            FinalPrint(today)
+        if debug:
+            print('should be returning')
+        return (currentChambers, futureChambersOn, futureChambersOff)
+                
+    except Exception as ec:
+        print(ec)
+            
+    finally:
+        #the files should be closed without
+        #if they weren't defined, they won't be used
+        bookOne.Close(toSave)
+        bookTwo.Close(toSave)
+        xlApp.Quit()
+
+def main():
+    OpenDefaults(toPrint = True)
+
+if __name__ == '__main__':
+    main()
+ 
