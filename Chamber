@@ -1,0 +1,84 @@
+# -*- coding: utf-8 -*-
+"""
+Chamber.py
+Created for defining the chamber data structure for samples and the default humidities
+Created on Thu Apr 18 13:52:54 2019
+
+@author: LeblancA
+"""
+_numTubes = 20
+_numChambers = 12
+_empty = '0'
+_noHumidity = 0
+_invalid= -1
+_humidityStd = 50
+_humidityHi = 75
+
+_humidityDefault = _humidityStd
+#chambers = [['0' for __ in range(_numTubes)] for _ in range(_numChambers)]
+#humidity = [0 for _ in range(_numChambers)]
+
+class Chambers:
+    
+    def __init__(self): 
+        #still unsure how to use this default class function or how to 
+        #properly utilize variables it creates
+        self.chambers = [[_empty for _ in range(_numTubes)] for __ in range(_numChambers)]
+        self.humidity = [_noHumidity for _ in range(_numChambers)]
+        self.extraStd = 0
+        self.extraHi = 0
+        self.humidityStd = _humidityStd #only used for UsageTotal
+        self.humidityHi = _humidityHi #only used for UsageTotal
+    
+    def PrintEmptyChamberSpaces(self, chamberNum = -1):
+        empty = _empty
+        spaces = ''
+        prefix = 'foo'
+        if chamberNum!= -1:
+            rng = range(chamberNum - 1, chamberNum)
+        else:
+            rng = range(len(self.chambers))
+        oneTube = False
+        for i in rng:
+            for j in range(len(self.chambers[i])):
+                if self.chambers[i][j] == empty:
+                    if not oneTube:
+                        spaces+=prefix + ' chamber ' + str(i+1) + ':\n'
+                        oneTube = True
+                    spaces+=prefix + str(i + 1) + '-' + str(j + 1) + ', '
+            spaces = spaces.strip(', ')
+            if oneTube:
+                spaces+='\n'
+                oneTube = False
+        spaces = spaces.strip('\n')
+        return spaces
+    
+    def UsageTotal(self, humidity = _invalid):
+        use = 0
+        numChambers = 0
+        numTubes = _numTubes
+        """returns a tuple containing the use, the numChambers, the numTubes, and the humidity requested"""
+        for i in range(len(self.chambers)):
+            if (humidity == _invalid or humidity == self.humidity[i] or \
+                (self.humidity[i] == _noHumidity and _humidityDefault == humidity)):
+                numChambers +=1
+                for j in range(len(self.chambers[i])):
+                    #possibly more self checks so iteration through just the tubes in chambers may not be best
+                    if self.chambers[i][j] !=_empty:
+                        use +=1
+        if not humidity == self.humidityHi:
+            use +=self.extraStd
+        if not humidity == self.humidityStd:
+            use += self.extraHi
+            
+        useTuple = (use, numChambers, numTubes, humidity)
+        return useTuple
+    
+    
+def ChamberTypeActualApril():
+    chamber = Chambers()
+    chamber.chambers = [['2801, id1', '2802, id2', '2803, id3', '2804, id4', '2805, id5', '3802, id6', '3803, id7', '3804, id8', '3805, id9', '3806, id10', '4401, id11', '4402, id12', '4403, id13', '4404, id14', '4405, id15', '3901, id16', '3902, id17', '3903, id18', '3904, id19', '0'], ['4101, id20', '4102, id21', '4103, id22', '4104, id23', '4105, flappy1', '4106, flappy2', '4107, flappy3', '4108, flappy4', '4109, flappy5', '4201, bowser1', '4202, bowser2', '4203, bowser3', '0', '0', '0', '4204, bowser4', '4205, bowser5', '4206, bowser6', '4207, bowser7', '4208, bowser8'], ['sleepy48, id1', 'sleepy48, id2', 'sleepy48, id3', 'sleepy48, id4', 'sleepy48, id5', 'sleepy48, id6', 'sleepy48, id7', 'sleepy48, id8', 'sleepy48, id9', '0', 'sleepy48, id10', '0', 'dasher22, id1', 'dasher22, id2', 'dasher22, id3', 'dasher22, id4', 'dasher22, id5', 'dasher22, id6', 'dasher22, id7', 'dasher22, id8', 'dasher22, id9'], ['0', '0', '0', '0', '0', '0', 'dasher22, id1', '0', '0', '0', 'dasher22, id2', '0', '0', '0', 'dasher22, id3', 'dasher22, id4', 'dasher22, id5', 'dasher22, id6', 'dasher22, id7', 'dasher22, id8', 'dasher22, id9', 'dasher22, id10', 'goofy11, id1'], ['0', '0', 'goofy11, id1', 'goofy11, id2', '0', 'goofy11, id3', 'goofy11, id4', 'goofy11, id5', '0', 'goofy11, id6', '0', '0', '0', '0', 'goofy11, id7', '0', '0', '0', '0', 'goofy11, id8'], ['goofy11, id1', 'goofy11, id2', 'goofy11, id3', 'goofy11, id4', 'goofy11, id5', 'goofy11, id6', 'goofy11, id7', 'goofy11, id8', 'goofy11, id9', 'goofy11, id10', 'nibbler17, id1', 'nibbler17, id2', 'nibbler17, id3', 'nibbler17, id4', 'nibbler17, id5', 'nibbler17, id6', 'nibbler17, id7', 'nibbler17, id8', 'nibbler17, id9', 'nibbler17, id10'], ['mulcher21, id1', 'mulcher21, id2', 'mulcher21, id3', 'mulcher21, id4', 'mulcher21, id5', 'mulcher21, id6', 'mulcher21, id7', 'mulcher21, id8', 'mulcher21, id9', 'mulcher21, id10', 'bulldozer49, id1', 'bulldozer49, id2', 'bulldozer49, id3', 'bulldozer49, id4', 'bulldozer49, id5', 'bulldozer49, id6', 'bulldozer49, id7', 'bulldozer49, id8', 'bulldozer49, id9', 'bulldozer49, id10', 'wolverine44, id1', 'wolverine44, id2', 'wolverine44, id3', 'wolverine44, id4', 'wolverine44, id5', 'wolverine44, id6'], ['wolverine44, id1', 'wolverine44, id2', 'wolverine44, id3', 'wolverine44, id4', 'wolverine44, id5', 'wolverine44, id6', 'wolverine44, id7', 'wolverine44, id8', 'wolverine44, id9', 'wolverine44, id10', 'cyclops6, id1', 'cyclops6, id2', 'cyclops6, id3', 'cyclops6, id4', 'cyclops6, id5', 'cyclops6, id6', 'cyclops6, id7', 'cyclops6, id8', 'cyclops6, id9', 'cyclops6, id10', 'storm6, id1', '0', 'storm6, id2', 'storm6, id3'], ['0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0', '0'], ['storm6, id1', 'storm6, id2', 'storm6, id3', '0', 'storm6, id4', '0', '0', '0', 'storm6, id5', 'storm6, id6', 'storm6, id7', '0', '0', '0', 'storm6, id8', 'storm6, id9', 'storm6, id10', 'chun8, id1', 'chun8, id2', 'chun8, id3', 'chun8, id4', 'chun8, id5', 'chun8, id6'], ['chun8, id1', 'chun8, id2', 'chun8, id3', 'chun8, id4', 'chun8, id5', 'chun8, id6', 'chun8, id7', 'chun8, id8', 'chun8, id9', 'chun8, id10', 'blanca28, id1', 'blanca28, id2', 'blanca28, id3', 'blanca28, id4', 'blanca28, id5', 'blanca28, id6', 'blanca28, id7', 'blanca28, id8', 'blanca28, id9', 'blanca28, id10', 'ryu30, id1', 'ryu30, id2', 'ryu30, id3', 'ryu30, id4'], ['ryu30, id1', 'ryu30, id2', 'ryu30, id3', '0', '0', '0', '0', '0', '0', '0', '0', '0', 'ryu30, id4', '0', '0', '0', '0', '0', '0', '0']]
+    chamber.humidity = [50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 50.0, 0, 50.0, 50.0, 75.0]
+    return chamber
+    
+
