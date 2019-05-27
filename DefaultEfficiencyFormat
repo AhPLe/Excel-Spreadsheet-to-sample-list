@@ -1,0 +1,250 @@
+# -*- coding: utf-8 -*-
+"""
+DefaultEfficiencyFormat.py
+This series is for the colors, formatting, labels, and structures for creating
+the formatted efficiency spreadsheet
+Created on Fri Apr 26 17:02:24 2019
+
+@author: LeblancA
+file to create and possibly format a spreadsheet using python
+"""
+
+import DefaultSpreadsheetData as DSD
+import Chamber
+import openpyxl
+humStd = Chamber._humidityStd
+humHi = Chamber._humidityHi
+noColor = (-1, -1, -1)
+noFont = openpyxl.styles.fonts.Font(bold = False)
+titleBold = True
+#from openpyxl import Font, Border, Side, Color, Fill
+
+def ToAlpha(curCol):
+    finalStr = ''
+    begAlpha = 'A'
+    endAlpha = 'Z'
+    numAlpha = ord(endAlpha) - ord(begAlpha) + 1 #order should begin at 1
+    while curCol > 0:
+        finalStr = chr(ord(begAlpha) + (curCol - 1)%(numAlpha)) + finalStr
+        curCol = (curCol - 1)//numAlpha
+    return finalStr
+
+def clamp(x): 
+  return max(0, min(x, 255))
+def TupleToHex(curTuple):
+    r = 0
+    g = 1
+    b = 2
+    # from https://stackoverflow.com/questions/3380726/converting-a-rgb-color-tuple-to-a-six-digit-code-in-python
+    return "{0:02x}{1:02x}{2:02x}".format(clamp(curTuple[r]), clamp(curTuple[g]), clamp(curTuple[b]))
+    
+class DefTubeSheetStyle():
+    grayBackground = TupleToHex((242, 242, 242))
+    greenBack = TupleToHex((226, 239, 218))
+    orangeBack = TupleToHex((255, 230, 153))
+    redBack = TupleToHex((255, 204, 204))
+    
+    titleBack = TupleToHex((217, 217, 217)) #default title gray
+    dataBack = TupleToHex((214, 220, 228)) #default data gray
+    cellStdBack = TupleToHex((221, 235, 247))
+    cellHiBack = TupleToHex((252, 228, 214))
+    blockBorder = openpyxl.styles.borders
+    
+    thin = openpyxl.styles.borders.Side(border_style="thin", color="000000")
+    blockBorder = openpyxl.styles.Border(top = thin, bottom = thin, right = thin, left = thin)
+    
+    centerAlign = openpyxl.styles.alignment.Alignment(horizontal = 'center')
+    
+    blueText = TupleToHex((0, 112, 192))    
+    greenText = TupleToHex((84, 130, 53))
+    orangeText = TupleToHex((131, 60, 12))
+    redText = TupleToHex((192, 0, 0))
+    
+    
+    cellCurrentBack = greenBack
+    cellProjectedOnBack = orangeBack
+    cellProjectedOffBack = redBack
+    
+    fontGreen = openpyxl.styles.fonts.Font(color = greenText)
+    
+    fontCurrentOn = fontGreen
+    fontProjectedOn = openpyxl.styles.fonts.Font(color = orangeText)
+    fontProjectedOff = openpyxl.styles.fonts.Font(color = redText)
+    
+    
+    
+    fontTitle = openpyxl.styles.fonts.Font(bold = True)
+    fontBlue = openpyxl.styles.fonts.Font(color = blueText, bold = True)
+    
+    numFormatPercent = 0
+
+class blockDef:
+    
+    def __init__(self):
+        self.titleRows = 1
+        self.block = [[]]
+        self.backColor = [[]]
+        self.font = [[]]
+    
+    def toBackColor(self, curColor, titleColor = noColor):
+        self.backColor = [[curColor]*len(self.block[0]) for _ in range(len(self.block))]
+        if not titleColor == noColor:
+            for i in range(len(self.block)):
+                for j in range(self.titleRows):
+                    self.backColor[i][j] = titleColor
+    
+    def toFont(self, curFont = noFont, toBold = False):
+        self.font = [[None for __ in range(len(self.block[0]))] for _ in range(len(self.block))] 
+        if toBold:
+            for i in range(len(self.block)):
+                for j in range(self.titleRows):
+                    self.font[i][j] = DefTubeSheetStyle.fontTitle
+
+class CellSpacing:
+    topTitleRow = 2
+    topTitleCol = DSD.AlphaToNum('B')
+    spacing = 2 #to be spaced correctly, spacing must be at least 2
+
+class DateBlock(blockDef):
+    def __init__(self):
+        blockDef.__init__(self)
+        self.titleDate = 'Date'
+        self.block = [[self.titleDate, 0]]
+        self.placeDataRow = 1
+        self.placeDateCol = 0
+        self.toBackColor(DefTubeSheetStyle.dataBack, DefTubeSheetStyle.titleBack)
+        self.toFont(noFont, titleBold) #noFont, DefTubeSheetStyle.fontTitle
+    
+    def applyDate(self, curDate):
+        self.block[self.placeDateCol][self.placeDataRow] = curDate
+
+class FourBlock(blockDef):
+    
+    def __init__(self):
+        blockDef.__init__(self)
+        self.title1 = ''
+        self.title2 = ''
+        self.placeStdCol = 0
+        self.placeHiCol = 1
+        self.placeDataRow = 1
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.dataBack, DefTubeSheetStyle.titleBack)
+        self.toFont(noFont, titleBold)
+        self.sizeCol = 2
+        self.sizeRow = 2
+        
+    def applyNumbers(self, curStd, curHi):
+        self.block[self.placeStdCol][self.placeDataRow] = curStd
+        self.block[self.placeHiCol][self.placeDataRow] = curHi
+
+class CurrentSpaceAvailable(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Current Space Available for ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Current Space Available for ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.cellCurrentBack)
+        self.toFont(DefTubeSheetStyle.fontCurrentOn, titleBold)
+
+class CurrentEfficiency(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Current Efficiency @ ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Current Efficiency @ ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.dataBack, DefTubeSheetStyle.titleBack)
+        self.toFont(noFont, titleBold)
+        
+
+class ProjectedOff(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Projected Off-Test for ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Projected Off-Test for ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.cellProjectedOffBack)
+        self.toFont(DefTubeSheetStyle.fontProjectedOff, titleBold)
+        
+
+class ProjectedOn(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Projected On-Test for ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Projected On-Test for ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.cellProjectedOnBack)
+        self.toFont(DefTubeSheetStyle.fontProjectedOn, titleBold)
+
+
+class ProjectedSpace(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Projected Space Available for ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Projected Space Available for ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.greenBack)
+        self.toFont(DefTubeSheetStyle.fontGreen, titleBold)
+        
+class ProjectedEfficiency(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Projected Efficiency @ ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Projected Efficiency @ ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.dataBack, DefTubeSheetStyle.titleBack)
+        self.toFont(noFont, titleBold)
+        
+class TotalSpace(FourBlock):
+    
+    def __init__(self):
+        FourBlock.__init__(self)
+        self.title1 = 'Total Space Used for ' + str(Chamber._humidityStd) + '%'
+        self.title2 = 'Total Space Used for ' + str(Chamber._humidityHi) + '%'
+        self.block = [[self.title1, 0], [self.title2, 0]]
+        self.toBackColor(DefTubeSheetStyle.greenBack)
+        self.toFont(DefTubeSheetStyle.fontGreen, titleBold)
+
+class MainBlock(blockDef):
+    
+    def __init__(self):
+        blockDef.__init__(self)
+        self.titleCab = 'Cabinet'
+        self.titleTube = 'Available Capacity (Out of ' + Chamber._numTubes + ')'
+        self.titleHumidity = 'RH%'
+        self.cabinetBlock = [0 for _ in range(Chamber._numChambers)]
+        self.cabinetBlock.insert(self.titleRows - 1, self.titleCab)
+        self.tubeCntBlock = [0 for _ in range(Chamber._numChambers)]
+        self.tubeCntBlock.insert(self.titleRows - 1, self.titleTube)
+        self.humidityBlock = [0 for _ in range(Chamber._numChambers)]
+        self.humidityBlock.insert(self.titleRows - 1, self.titleHumidity)
+        self.block = [self.cabinetBlock, self.tubeCntBlock, self.humidityBlock]
+        self.toBackColor(DefTubeSheetStyle.cellStdBack, DefTubeSheetStyle.titleBack)
+        self.toFont(noFont, titleBold)#noFont, DefTubeSheetStyle.fontTitle
+        self.MidFontChange()
+        
+    
+    def MidFontChange(self):
+        index = 1
+        for i in range(self.titleRows, len(self.font[index])):
+            self.font[index][i] = DefTubeSheetStyle.fontBlue
+    
+    def copyChamber(self, curChamber):
+        
+        for i in range(len(curChamber.chambers)):
+            self.cabinetBlock[i + self.titleRows] = i + 1
+            #the cabinetBlock is practically just a counter
+            for tube in curChamber.chambers[i]:
+                if tube == Chamber._empty:
+                    self.tubeCntBlock[i + self.titleRows] += 1
+            if curChamber.humidity[i] == humHi:
+                for j in range(len(self.backColor)):
+                    self.backColor[j][i + self.titleRows] = DefTubeSheetStyle.cellHiBack
+            self.humidityBlock[i + self.titleRows] = curChamber.humidity[i] #should convert to percent
+            
+        
