@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+"""
+CreateExcelSpreadsheet.py
+a tool for creating efficiency spreadsheet from available spreadsheet data
+DefaultSpreadsheetData contains links to the tools
+DefaultEfficiencyFormat contains basic formatting colors, classes, and structures for creating the spreadsheet
+the code is my work, the original design and formatting is not
+Created on Mon Apr 29 15:05:50 2019
+
+@author: LeblancA
+"""
+import openpyxl
+import datetime
+import DefaultEfficiencyFormat as DEF
+import Chamber
+import TestCurrentTubesUpdate as TestCurrentTubes
+
+today = datetime.date.today()
+
+def blockPrint(curBlock, startRow, startCol):
+    for i in range(len(curBlock.block)):
+        for j in range(len(curBlock.block[i])):
+            ws.cell(row = startRow + j, column = startCol + i, value = curBlock.block[i][j])
+            theCell = DEF.ToAlpha(startCol + i) + str(startRow + j)
+            curColor = openpyxl.styles.Color(rgb = curBlock.backColor[i][j])
+            ws[theCell].fill = openpyxl.styles.fills.PatternFill(patternType = 'solid', fgColor = curColor)
+            if not curBlock.font[i][j] == None:
+                ws[theCell].font = curBlock.font[i][j]
+            ws[theCell].border = DEF.DefTubeSheetStyle.blockBorder
+            ws[theCell].alignment = DEF.DefTubeSheetStyle.centerAlign
+    return (i + startCol, j + startRow)
+
+excelFileType = '.xlsx'
+sheetName = 'Efficiency Sheet'
+sheetNum = 0
+bookName = 'Chamber Efficiency ' + str(today) + excelFileType #FIX change to just chamber efficiency
+try:
+    wb = openpyxl.Workbook()
+    #wb.save(bookName) #save early to make sure there isn't an error - this is now not useful since if excel is open it will throw an error
+    
+    curChamber, futChamberOn, futChamberOff = TestCurrentTubes.OpenDefaults(toPrint = False)
+except PermissionError as permerr:
+    print(permerr)
+    print('worksheet already open, please close worksheet', bookName)
+except TestCurrentTubes.ExcelError as excE:
+    print(excE.message)
+else:
+    ws = wb.create_sheet(title = sheetName, index = sheetNum)    
+    ws.title = sheetName
+
+    mBlock = DEF.MainBlock()
+    mBlock.copyChamber(curChamber)
+    i = 0
+    j = 0
+    i, j = blockPrint(mBlock, DEF.CellSpacing.topTitleRow, DEF.CellSpacing.topTitleCol)
+    
+    k = i + DEF.CellSpacing.spacing
+    dBlock = DEF.DateBlock()
+    dBlock.applyDate(today)
+    dateI, datej = blockPrint(dBlock, DEF.CellSpacing.topTitleRow, k)
+    
+    curBlock = DEF.CurrentSpaceAvailable()
+    curUseStd, curChambStd, __, ___ = curChamber.UsageTotal(curChamber.humidityStd) #FIX change to curUseStd and curUseHi
+    curUseHi, curChambHi, __, ___ = curChamber.UsageTotal(curChamber.humidityHi)
+    curBlock.applyNumbers((curChambStd*Chamber._numTubes) - curUseStd, (curChambHi*Chamber._numTubes) - curUseHi)
+    projOffBlock = DEF.ProjectedOff()
+    
+    projOffStd, _, __, ___ = futChamberOff.UsageTotal(futChamberOff.humidityStd)
+    projOffHi, _, __, ___ = futChamberOff.UsageTotal(futChamberOff.humidityHi)
+    projOnStd, _, __, ___ = futChamberOn.UsageTotal(futChamberOn.humidityStd)
+    projOnHi, _, __, ___ = futChamberOn.UsageTotal(futChamberOn.humidityHi)
+    
+    projOffBlock.applyNumbers(projOffStd, projOffHi)
+    projSpaceBlock = DEF.ProjectedSpace()
+    projSpaceBlock.applyNumbers((curChambStd*Chamber._numTubes) - curUseStd + projOffStd - projOnStd, \
+                                (curChambHi*Chamber._numTubes) - curUseHi + projOffHi - projOnHi)
+    
+    curEffBlock = DEF.CurrentEfficiency()
+    curEffBlock.applyNumbers(curUseStd/(curChambStd*Chamber._numTubes), curUseHi/(curChambHi*Chamber._numTubes))
+    projOnBlock = DEF.ProjectedOn()
+    
+    projOnBlock.applyNumbers(projOnStd, projOnHi)
+    projEffBlock = DEF.ProjectedEfficiency()
+    projEffBlock.applyNumbers((curUseStd - projOffStd + projOnStd)/(curChambStd*Chamber._numTubes), \
+                              (curUseHi - projOffHi + projOnHi)/(curChambHi*Chamber._numTubes))
+    
+    fourBlockArr = [[curBlock, projOffBlock, projSpaceBlock], [curEffBlock, projOnBlock, projEffBlock]]
+    sizeRow = curBlock.sizeRow
+    sizeCol = curBlock.sizeCol
+    for m in range(len(fourBlockArr)):
+        for n in range(len(fourBlockArr[m])):        
+            _, __ = blockPrint(fourBlockArr[m][n], j + DEF.CellSpacing.spacing*(n + 1) + fourBlockArr[m][n].sizeRow*n, \
+                               DEF.CellSpacing.topTitleCol + DEF.CellSpacing.spacing*m + fourBlockArr[m][n].sizeCol*m)
+
+
+    wb.save(bookName)
+
+    
