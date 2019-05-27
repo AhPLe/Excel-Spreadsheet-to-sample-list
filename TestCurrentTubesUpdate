@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """
+TestCurrentTubesUpdate.py
 this function is designed to mimic an actual function used
 to see which samples are on, off, going on, and going off
 from a spreadsheet in excel
