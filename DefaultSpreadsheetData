@@ -1,0 +1,71 @@
+# -*- coding: utf-8 -*-
+"""
+DefaultSpreadsheetData.py
+class defining all defaults for the spreadsheet
+Created on Mon Apr  1 17:06:11 2019
+
+@author: LeblancA
+
+"""
+#things required for the current spreadsheet:
+#workbook names, spreadsheet names, lines to start from
+
+
+def AlphaToNum(column):
+    #this will produce errors, needs debugging and syntax correction
+    final = 0
+    begAlph = 'A'
+    endAlph = 'Z'
+    column = str.upper(column)
+    numAlpha = ord(endAlph) - ord(begAlph) + 1
+    for i in range(len(column)):
+        final += (ord(column[i]) - ord(begAlph) + 1)*(numAlpha**(len(column) - i - 1))
+    return final
+
+class tubeBook:
+    wbkPath = ""
+    wbkName = ""
+    shtName = ""
+    startRow = 0
+
+    estEDCol = ""
+    actEDCol = ""
+    chamberCol = ""
+    idCol = ""
+    groupNum = ""  #FIX make it a groupNum
+    cycleCol = "" #this could be fine
+    startDCol = "" #
+    humidityCol = ""
+
+class bookOneDefault(tubeBook):
+    
+    wbkPath = "https://chemicality.weebly.com/test_excel.xlsx"
+    wbkName = "test_excel" #possibly modify this to only include the partitions after the final /
+    shtName = "Sheet1"
+    startRow = 3
+
+    estEDCol = AlphaToNum("D")
+    actEDCol = AlphaToNum("E")
+    chamberCol = AlphaToNum("N")
+    idCol = AlphaToNum("A")
+    groupNum = AlphaToNum("B")
+    cycleCol = AlphaToNum("F")
+    startDCol = AlphaToNum("C")
+    humidityCol = AlphaToNum("P")
+
+class bookTwoDefault(tubeBook):
+    
+    wbkPath = 'https://chemicality.weebly.com/foo.xlsx'
+    wbkName = "foo"
+    shtName = "Sheet1"
+    startRow = 3
+    
+    estEDCol = AlphaToNum("D")
+    actEDCol = AlphaToNum("E")
+    chamberCol = AlphaToNum("N")
+    idCol = AlphaToNum("B")
+    groupNum = AlphaToNum("A")
+    cycleCol = AlphaToNum("F")
+    startDCol = AlphaToNum("C")
+    humidityCol = AlphaToNum("O")
+    
